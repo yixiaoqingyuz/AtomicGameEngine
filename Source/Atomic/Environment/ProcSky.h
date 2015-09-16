@@ -1,134 +1,124 @@
-//
-// Copyright (c) 2014-2015, THUNDERBEAST GAMES LLC All rights reserved
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-// THE SOFTWARE.
-//
+/**
+  @class ProcSky
+  @brief Procedural Sky component for Urho3D
+  @author carnalis <carnalis.j@gmail.com>
+  @license MIT License
+  @copyright
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+  THE SOFTWARE.
+*/
+
+#define PROCSKY_UI
+//#define PROCSKY_TEXTURE_DUMPING
 
 #pragma once
 
-#if defined(_WIN32) || defined(_WIN64)
-#define fmax max
-#define fmin min
-#endif
-
-#include "../Graphics/Drawable.h"
-#include "../Graphics/Texture2D.h"
-#include "../Graphics/IndexBuffer.h"
-#include "../Graphics/VertexBuffer.h"
-#include "../Graphics/Geometry.h"
-#include "../Graphics/Material.h"
-#include "../Graphics/Zone.h"
+#include "../Scene/Component.h"
+#include "../Graphics/Camera.h"
 #include "../Scene/Node.h"
+#include "../Graphics/RenderPath.h"
+#include "../Graphics/Viewport.h"
+#include "../Container/Vector.h"
+#include "../Math/Matrix3.h"
+#include "../Math/Vector3.h"
+
+#define PROCSKY_TEXTURE_DUMPING
 
 namespace Atomic
 {
 
+class Skybox;
+class StringHash;
 
-class ProcSky : public Drawable
-{
+#if defined(PROCSKY_TEXTURE_DUMPING)
+class Texture2D;
+class TextureCube;
+#endif
+
+
+class ProcSky: public Component {
     OBJECT(ProcSky);
 
 public:
-    /// Construct.
-    ///
     ProcSky(Context* context);
+    virtual ~ProcSky();
 
-    /// Destruct.
-    ~ProcSky();
-
-    /// Register object factory. Drawable must be registered first.
     static void RegisterObject(Context* context);
-
-    float SetDayTime(float time);
-    float GetDayTime()
-    {
-        return dayTime_;
-    }
-
-    void SetAutoUpdate(bool autoUpdate)
-    {
-        autoUpdate_ = autoUpdate;
-    }
-
-    /// Calculate distance and prepare batches for rendering. May be called from worker thread(s), possibly re-entrantly.
-    virtual void UpdateBatches(const FrameInfo& frame);
-    /// Prepare geometry for rendering. Called from a worker thread if possible (no GPU update.)
-    virtual void UpdateGeometry(const FrameInfo& frame);
-    /// Return whether a geometry update is necessary, and if it can happen in a worker thread.
-    virtual UpdateGeometryType GetUpdateGeometryType();
-
-    static float GetTimeOfDay() { return timeOfDay_; }
-
-protected:
-
-    SharedPtr<Texture2D> skyTexture_;
-    SharedPtr<Material> skyMaterial_;
-    SharedPtr<Light> sunlight_;
-
-    /// Geometry.
-    SharedPtr<Geometry> geometry_;
-    /// Vertex buffer.
-    SharedPtr<VertexBuffer> vertexBuffer_;
-
-    /// Index buffer.
-    SharedPtr<IndexBuffer> indexBuffer_;
-
-    SharedPtr<Zone> zone_;
-
-    void UpdateVertexBuffer(const FrameInfo& frame);
-    void UpdateIndexBuffer();
-
-    bool autoUpdate_;
-
-    float dayTime_;
-    float lastDayTimeUpdate_;
-    float shadowFade_;
-
-    static float timeOfDay_;
-
-    float sunAngle_;
-    float sunSize_;
-
-    Color topColor_;
-    Color horizColor_;
-    Color lerpColor_;
-    Color fogColor_;
-
-    /// Custom world transform.
-    Matrix3x4 customWorldTransform_;
-
-    bool initialized_;
-    bool flipped_;
-
     void OnNodeSet(Node* node);
 
-    void HandleSceneUpdate(StringHash eventType, VariantMap& eventData);
-    void HandleBeginViewUpdate(StringHash eventType, VariantMap& eventData);
+    bool GetUpdateAuto() const { return updateAuto_; }
+    float GetUpdateInterval() const { return updateInterval_; }
+    float GetUpdateWait() const { return updateWait_; }
+    unsigned GetRenderSize() const { return renderSize_; }
 
-    void Initialize();
+    /// Automatic update renders according to update interval. If Manual, user calls Update() to render.
+    void SetUpdateAuto(bool updateAuto);
+    /// Set the rendering interval (default 0).
+    void SetUpdateInterval(float interval) { updateInterval_ = interval; }
+    /// Set size of Skybox TextureCube.
+    bool SetRenderSize(unsigned size);
+    /// Initialize objects and subscribe to update events.
+    bool Initialize();
+    /// Queue render of next frame.
+    void Update();
 
-    void ProcessRayQuery(const RayOctreeQuery& query, PODVector<RayQueryResult>& results);
+protected:
+    void HandleUpdate(StringHash eventType, VariantMap& eventData);
+    /// Set rendering of next frame active/inactive.
+    void SetRenderQueued(bool enable);
+    void HandlePostRenderUpdate(StringHash eventType, VariantMap& eventData);
 
-    /// Recalculate the world-space bounding box.
-    virtual void OnWorldBoundingBoxUpdate();
+#if defined(PROCSKY_TEXTURE_DUMPING)
+    void DumpTexCubeImages(TextureCube* texCube, const String& filePathPrefix);
+    void DumpTexture(Texture2D* texture, const String& filePath);
+#endif
 
+protected:
+    /// Camera used for face projections.
+    Camera* cam_;
+    /// Urho3D Skybox with geometry and main TextureCube.
+    SharedPtr<Skybox> skybox_;
+    /// Node used for light direction.
+    WeakPtr<Node> lightNode_;
+    SharedPtr<RenderPath> rPath_;
+    /// Render size of each face.
+    unsigned renderSize_;
+    /// FOV used to initialize the default camera. Can adjust for Skybox seams.
+    float renderFOV_;
+    /// Fixed rotations for each cube face.
+    Matrix3 faceRotations_[MAX_CUBEMAP_FACES];
 
+    bool updateAuto_;
+    float updateInterval_;
+    float updateWait_;
+    bool renderQueued_;
+
+    /// Atmospheric parameters.
+    Vector3 Kr_; // Absorption profile of air.
+    float rayleighBrightness_;
+    float mieBrightness_;
+    float spotBrightness_;
+    float scatterStrength_;
+    float rayleighStrength_;
+    float mieStrength_;
+    float rayleighCollectionPower_;
+    float mieCollectionPower_;
+    float mieDistribution_;
 };
 
 }

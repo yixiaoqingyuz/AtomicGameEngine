@@ -34,6 +34,7 @@ geometryCreateSource.addItem(new Atomic.UIMenuItem("BillboardSet", "create compo
 geometryCreateSource.addItem(new Atomic.UIMenuItem("CustomGeometry", "create component"));
 geometryCreateSource.addItem(new Atomic.UIMenuItem("ParticleEmitter", "create component"));
 geometryCreateSource.addItem(new Atomic.UIMenuItem("Skybox", "SkyBox"));
+geometryCreateSource.addItem(new Atomic.UIMenuItem("ProcSky", "ProcSky"));
 geometryCreateSource.addItem(new Atomic.UIMenuItem("StaticModelGroup", "create component"));
 geometryCreateSource.addItem(new Atomic.UIMenuItem("Terrain", "create component"));
 geometryCreateSource.addItem(new Atomic.UIMenuItem("Text3D", "create component"));

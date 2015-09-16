@@ -61,7 +61,7 @@ void TimeOfDay::OnNodeSet(Node* node)
 
 void TimeOfDay::HandleSceneUpdate(StringHash eventType, VariantMap& eventData)
 {
-    float timeOfDay = ProcSky::GetTimeOfDay();
+    float timeOfDay = 0.0f;//ProcSky::GetTimeOfDay();
 
     if (timeOfDay >= timeOn_ || timeOfDay < timeOff_)
     {
